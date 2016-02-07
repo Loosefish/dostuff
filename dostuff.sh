@@ -1,6 +1,7 @@
 #!/bin/sh
 case $1 in
 	-)
+		# list commands
 		grep "^do_.*().*{$" ./Dofile 2>/dev/null|\
 			cut -f2- -d "_" |\
 			cut -f1 -d "(" |\
@@ -8,6 +9,7 @@ case $1 in
 			sed -e "s/^$/[default]/"
 		;;
 	*)
+		# check for Dofile
 		if test -e ./Dofile; then
 			source ./Dofile
 			if grep "^do_$1.*().*{$" ./Dofile > /dev/null; then
@@ -19,6 +21,7 @@ case $1 in
 				exit 1
 			fi
 		else
+			# no Dofile -> check if arg is path
 			if test -d "$1"; then
 				echo -e 'do_() {\n\techo "Do stuff!"\n}' > ./Dofile
 				test -n "${EDITOR}" && ${EDITOR} ./Dofile
