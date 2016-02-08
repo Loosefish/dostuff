@@ -7,3 +7,7 @@ do_ () {
 do_test() {
 	wc -l Dofile
 }
+
+do_args() {
+	echo "$@"
+}

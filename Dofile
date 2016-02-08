@@ -23,16 +23,13 @@ do_filetypes() {
 
 do_test() {
 	tup
-	do_test_sh
-	do_test_py
+	test_generic "do-py"
+	test_generic "do-sh"
 }
 
-do_test_sh() {
-	DOFILE="do-sh" ./dostuff
-	DOFILE="do-sh" ./dostuff test
-}
 
-do_test_py() {
-	DOFILE="do-py" ./dostuff
-	DOFILE="do-py" ./dostuff test
+test_generic() {
+	DOFILE="$1" ./dostuff
+	DOFILE="$1" ./dostuff "test"
+	DOFILE="$1" ./dostuff args 1 2 4 8
 }

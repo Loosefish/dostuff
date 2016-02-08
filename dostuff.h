@@ -10,8 +10,13 @@
 #define RE_SH "^ *%s *() *{ *$"
 #define RE_PY "^def *%s *("
 
+#define ARG_SEP_SH " "
+#define ARG_SEP_PY ", "
+
 #define EX_SH "source %s && %s"
+#define EX_ARGS_SH "source %s && %s %s"
 #define EX_PY "python -B -c \"exec(open('%s').read()); %s()\""
+#define EX_ARGS_PY "python -B -c \"exec(open('%s').read()); %s(%s)\""
 
 #define DIE_IF(cnd, msg) \
     if (cnd) { \

@@ -8,3 +8,7 @@ def do_test():
 def do_():
     for i in range(10):
         print(i)
+
+
+def do_args(*args):
+    print(args)

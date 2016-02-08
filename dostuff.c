@@ -66,6 +66,39 @@ char* get_cmd(int argc, char *argv[]) {
 }
 
 
+void get_cmd_args(Dotype dotype, int argc, char *argv[], char** cmd, char** args) {
+	if (argc > 2) {
+		char *sep;
+		switch (dotype) {
+			case PY:
+				sep = ARG_SEP_PY;
+				break;
+			case SH:
+			default:
+				sep = ARG_SEP_SH;
+				break;
+		}
+		size_t total = 1;
+		for (size_t i = 2; i < argc; ++i) {
+			total += strlen(argv[i]);
+		}
+		*args = calloc(total + 1 + ((argc - 3) * strlen(sep)), 1);
+		strcpy(*args, argv[2]);
+		for (size_t i = 3; i < argc; ++i) {
+			strcat(*args, sep);
+			strcat(*args, argv[i]);
+		}
+	}
+
+	if (argc > 1) {
+		asprintf(cmd, "%s%s", DOFILE_PREFIX, argv[1]);
+	}
+	else {
+		asprintf(cmd, "%s", DOFILE_PREFIX);
+	}
+}
+
+
 bool has_cmd(char* dofile, Dotype dotype, char* cmd) {
 	char *pattern;
 	regex_t cmd_re;
@@ -119,21 +152,47 @@ void run_cmd(char* dofile, Dotype dotype, char* cmd) {
 }
 
 
+void run_cmd_args(char* dofile, Dotype dotype, char* cmd_name, char* cmd_args) {
+	// TODO: ARGS
+	char* cmd_full;
+	switch (dotype) {
+		case PY:
+			asprintf(&cmd_full, EX_ARGS_PY, dofile, cmd_name, cmd_args);
+			break;
+		default:
+		case SH:
+			asprintf(&cmd_full, EX_ARGS_SH, dofile, cmd_name, cmd_args);
+			break;
+	}
+	system(cmd_full);
+	free(cmd_full);
+}
+
+
 int main(int argc, char *argv[]) {
 	char *dofile = get_dofile();
 	if (dofile) {
 		Dotype dotype = get_type(dofile);
 		DIE_IF(dotype == UNKNOWN, "Dofile has unknown type");
 
-		char *cmd = get_cmd(argc, argv);
-		printf("DOFILE: %s\n", dofile);
-		printf("CMD: %s\n", cmd);
-		DIE_IF(!has_cmd(dofile, dotype, cmd), "Unknown command");
+		char *cmd_name = NULL;
+		char *cmd_args = NULL;
+		get_cmd_args(dotype, argc, argv, &cmd_name, &cmd_args);
+		/* printf("DOFILE: %s\n", dofile); */
+		/* printf("CMD: %s\n", cmd_name); */
+		/* printf("CMD_ARGS: %s\n", cmd_args); */
+		DIE_IF(!has_cmd(dofile, dotype, cmd_name), "Unknown command");
 		// if arg is path -> init Dofile in path
 
-		run_cmd(dofile, dotype, cmd);
+		if (cmd_args) {
+			run_cmd_args(dofile, dotype, cmd_name, cmd_args);
+		}
+		else {
+			run_cmd(dofile, dotype, cmd_name);
+		}
 
-		free(cmd);
+		free(cmd_name);
+		free(cmd_args);
 		free(dofile);
 	}
 	else {
