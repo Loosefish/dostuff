@@ -1,0 +1,38 @@
+#!/bin/sh
+
+filetest() {
+	echo $1
+	echo $1 > dotest
+	DOFILE="dotest" ./dostuff
+	rm dotest
+	echo
+}
+
+do_filetypes() {
+	tup
+	filetest '#!/bin/sh'
+	filetest '#!/usr/bin/sh'
+	filetest '#!/usr/bin/env sh'
+	filetest '#!/bin/bash'
+	filetest '#!/usr/bin/bash'
+	filetest '#!/usr/bin/env bash'
+	filetest '#!/bin/python'
+	filetest '#!/usr/bin/python'
+	filetest '#!/usr/bin/env python'
+}
+
+do_test() {
+	tup
+	do_test_sh
+	do_test_py
+}
+
+do_test_sh() {
+	DOFILE="do-sh" ./dostuff
+	DOFILE="do-sh" ./dostuff test
+}
+
+do_test_py() {
+	DOFILE="do-py" ./dostuff
+	DOFILE="do-py" ./dostuff test
+}

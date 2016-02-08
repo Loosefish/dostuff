@@ -1,0 +1,9 @@
+#!/bin/sh
+
+do_ () {
+	echo Default
+}
+
+do_test() {
+	wc -l Dofile
+}
