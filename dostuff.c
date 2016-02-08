@@ -7,8 +7,8 @@
 #include <magic.h>
 #include <regex.h>
 
-#define DOFILE_DEFAULT "Dofile"
 #define DOFILE_ENV "DOFILE"
+#define DOFILE_DEFAULT "Dofile"
 #define DOFILE_PREFIX "do_"
 #define DOFILE_PREFIX_N 3
 
@@ -129,16 +129,23 @@ bool has_cmd(char* dofile, Dotype dotype, char* cmd) {
 
 
 void run_cmd(char* dofile, Dotype dotype, char* cmd) {
+	// TODO: ARGS
+	char* cmd_full;
+	switch (dotype) {
+		case PY:
+			asprintf(&cmd_full, "python -B -c \"exec(open('%s').read()); %s()\"", dofile, cmd);
+			break;
+		default:
+		case SH:
+			asprintf(&cmd_full, "source %s && %s", dofile, cmd);
+			break;
+	}
+	system(cmd_full);
+	free(cmd_full);
 }
 
 
 int main(int argc, char *argv[]) {
-	// if Dofile exists
-		// if arg == '-' -> list commands
-		// else if arg in dofile -> execute command
-		// else "Unknown command!"
-	// else if arg is path -> init Dofile in path
-	// else "No Dofile!"
 	char *dofile = get_dofile();
 	if (dofile) {
 		Dotype dotype = get_type(dofile);
@@ -148,8 +155,9 @@ int main(int argc, char *argv[]) {
 		printf("DOFILE: %s\n", dofile);
 		printf("CMD: %s\n", cmd);
 		DIE_IF(!has_cmd(dofile, dotype, cmd), "Unknown command");
+		// if arg is path -> init Dofile in path
 
-		printf("Found cmd\n");
+		run_cmd(dofile, dotype, cmd);
 
 		free(cmd);
 		free(dofile);
