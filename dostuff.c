@@ -9,6 +9,28 @@
 
 #include "dostuff.h"
 
+char *FUNC_PATTERN = NULL;
+char *FUNC_ARG_SEP = NULL;
+char *EXEC_FMT = NULL;
+char *EXEC_ARGS_FMT = NULL;
+
+void apply_type(Dotype dotype) {
+	switch (dotype) {
+		case PY:
+			FUNC_PATTERN = "^def *%s *(";
+			FUNC_ARG_SEP = ", ";
+			EXEC_FMT = "python -B -c \"exec(open('%s').read()); %s()\"";
+			EXEC_ARGS_FMT = "python -B -c \"exec(open('%s').read()); %s(%s)\"";
+			break;
+		case SH:
+		default:
+			FUNC_PATTERN = "^ *%s *() *{ *$";
+			FUNC_ARG_SEP = " ";
+			EXEC_FMT = "source %s && %s";
+			EXEC_ARGS_FMT = "source %s && %s %s";
+			break;
+	}
+}
 
 Dotype get_type(char* path) {
 	const char* magic_type;
@@ -68,24 +90,14 @@ char* get_cmd(int argc, char *argv[]) {
 
 void get_cmd_args(Dotype dotype, int argc, char *argv[], char** cmd, char** args) {
 	if (argc > 2) {
-		char *sep;
-		switch (dotype) {
-			case PY:
-				sep = ARG_SEP_PY;
-				break;
-			case SH:
-			default:
-				sep = ARG_SEP_SH;
-				break;
-		}
 		size_t total = 1;
 		for (size_t i = 2; i < argc; ++i) {
 			total += strlen(argv[i]);
 		}
-		*args = calloc(total + 1 + ((argc - 3) * strlen(sep)), 1);
+		*args = calloc(total + 1 + ((argc - 3) * strlen(FUNC_ARG_SEP)), 1);
 		strcpy(*args, argv[2]);
 		for (size_t i = 3; i < argc; ++i) {
-			strcat(*args, sep);
+			strcat(*args, FUNC_ARG_SEP);
 			strcat(*args, argv[i]);
 		}
 	}
@@ -102,15 +114,7 @@ void get_cmd_args(Dotype dotype, int argc, char *argv[], char** cmd, char** args
 bool has_cmd(char* dofile, Dotype dotype, char* cmd) {
 	char *pattern;
 	regex_t cmd_re;
-	switch (dotype) {
-		case PY:
-			asprintf(&pattern, RE_PY, cmd); 
-			break;
-		case SH:
-		default:
-			asprintf(&pattern, RE_SH, cmd); 
-			break;
-	}
+	asprintf(&pattern, FUNC_PATTERN, cmd); 
 
 	// compile regex
 	int r = regcomp(&cmd_re, pattern, REG_NOSUB|REG_NEWLINE);
@@ -138,32 +142,15 @@ bool has_cmd(char* dofile, Dotype dotype, char* cmd) {
 void run_cmd(char* dofile, Dotype dotype, char* cmd) {
 	// TODO: ARGS
 	char* cmd_full;
-	switch (dotype) {
-		case PY:
-			asprintf(&cmd_full, EX_PY, dofile, cmd);
-			break;
-		default:
-		case SH:
-			asprintf(&cmd_full, EX_SH, dofile, cmd);
-			break;
-	}
+	asprintf(&cmd_full, EXEC_FMT, dofile, cmd);
 	system(cmd_full);
 	free(cmd_full);
 }
 
 
 void run_cmd_args(char* dofile, Dotype dotype, char* cmd_name, char* cmd_args) {
-	// TODO: ARGS
 	char* cmd_full;
-	switch (dotype) {
-		case PY:
-			asprintf(&cmd_full, EX_ARGS_PY, dofile, cmd_name, cmd_args);
-			break;
-		default:
-		case SH:
-			asprintf(&cmd_full, EX_ARGS_SH, dofile, cmd_name, cmd_args);
-			break;
-	}
+	asprintf(&cmd_full, EXEC_ARGS_FMT, dofile, cmd_name, cmd_args);
 	system(cmd_full);
 	free(cmd_full);
 }
@@ -173,6 +160,7 @@ int main(int argc, char *argv[]) {
 	char *dofile = get_dofile();
 	if (dofile) {
 		Dotype dotype = get_type(dofile);
+		apply_type(dotype);
 		DIE_IF(dotype == UNKNOWN, "Dofile has unknown type");
 
 		char *cmd_name = NULL;
