@@ -7,30 +7,7 @@
 #include <magic.h>
 #include <regex.h>
 
-#define DOFILE_ENV "DOFILE"
-#define DOFILE_DEFAULT "Dofile"
-#define DOFILE_PREFIX "do_"
-#define DOFILE_PREFIX_N 3
-
-#define PATH_SEP "/"
-
-#define MIME_SH "text/x-shellscript"
-#define MIME_SH_N 18
-#define MIME_PY "text/x-python"
-#define MIME_PY_N 13
-
-#define RE_SH "^ *%s *() *{ *$"
-#define RE_PY "^def *%s *("
-
-#define DIE_IF(cnd, msg) \
-    if (cnd) { \
-        fprintf(stderr, "Error: %s\n", msg); \
-        exit(EXIT_FAILURE); \
-    }
-
-
-enum Dotype {UNKNOWN, PY, SH};
-typedef enum Dotype Dotype;
+#include "dostuff.h"
 
 
 Dotype get_type(char* path) {
@@ -42,10 +19,10 @@ Dotype get_type(char* path) {
 	magic_type = magic_file(magic_cookie, path);
 	Dotype dotype = UNKNOWN;
 	if (magic_type) {
-		if (strncmp(magic_type, MIME_SH, MIME_SH_N) == 0) {
+		if (strncmp(magic_type, MIME_SH, strlen(MIME_SH)) == 0) {
 			dotype = SH;
 		}
-		else if (strncmp(magic_type, MIME_PY, MIME_PY_N) == 0) {
+		else if (strncmp(magic_type, MIME_PY, strlen(MIME_PY)) == 0) {
 			dotype = PY;
 		}
 	}
@@ -58,6 +35,7 @@ char* get_dofile_name() {
 	char* name = getenv(DOFILE_ENV);
 	return name ? name : DOFILE_DEFAULT;
 }
+
 
 char* get_dofile() {
 	// get working dir and Dofile name
@@ -79,14 +57,10 @@ char* get_dofile() {
 char* get_cmd(int argc, char *argv[]) {
 	char *cmd;
 	if (argc > 1) {
-		size_t arg_n = strlen(argv[1]);
-		cmd = calloc(DOFILE_PREFIX_N + 1 + arg_n, sizeof(char));
-		strncpy(cmd, DOFILE_PREFIX, DOFILE_PREFIX_N);
-		strncpy(cmd + DOFILE_PREFIX_N, argv[1], arg_n);
+		asprintf(&cmd, "%s%s", DOFILE_PREFIX, argv[1]);
 	}
 	else {
-		cmd = calloc(DOFILE_PREFIX_N + 1, sizeof(char));
-		strncpy(cmd, DOFILE_PREFIX, DOFILE_PREFIX_N);
+		asprintf(&cmd, "%s", DOFILE_PREFIX);
 	}
 	return cmd;
 }
@@ -133,11 +107,11 @@ void run_cmd(char* dofile, Dotype dotype, char* cmd) {
 	char* cmd_full;
 	switch (dotype) {
 		case PY:
-			asprintf(&cmd_full, "python -B -c \"exec(open('%s').read()); %s()\"", dofile, cmd);
+			asprintf(&cmd_full, EX_PY, dofile, cmd);
 			break;
 		default:
 		case SH:
-			asprintf(&cmd_full, "source %s && %s", dofile, cmd);
+			asprintf(&cmd_full, EX_SH, dofile, cmd);
 			break;
 	}
 	system(cmd_full);
