@@ -1,5 +1,9 @@
 #!/bin/sh
 
+do_() {
+	echo "Nothing"
+}
+
 filetest() {
 	echo $1
 	echo $1 > dotest

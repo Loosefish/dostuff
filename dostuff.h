@@ -13,12 +13,14 @@
         exit(EXIT_FAILURE); \
     }
 
+
 enum Dotype {UNKNOWN, PY, SH};
 typedef enum Dotype Dotype;
 
 Dotype get_type(char* path);
+void apply_type(Dotype dotype);
 char* get_dofile_name();
 char* get_dofile();
-char* get_cmd(int argc, char *argv[]);
-void run_cmd(char* dofile, Dotype dotype, char* cmd);
-int main(int argc, char *argv[]);
+void get_args(int argc, char *argv[], char** func, char** args);
+bool has_func(char* dofile, char* func);
+void run_func(char* dofile, char* func, char* args);

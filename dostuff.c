@@ -14,23 +14,6 @@ char *FUNC_ARG_SEP = NULL;
 char *EXEC_FMT = NULL;
 char *EXEC_ARGS_FMT = NULL;
 
-void apply_type(Dotype dotype) {
-	switch (dotype) {
-		case PY:
-			FUNC_PATTERN = "^def *%s *(";
-			FUNC_ARG_SEP = ", ";
-			EXEC_FMT = "python -B -c \"exec(open('%s').read()); %s()\"";
-			EXEC_ARGS_FMT = "python -B -c \"exec(open('%s').read()); %s(%s)\"";
-			break;
-		case SH:
-		default:
-			FUNC_PATTERN = "^ *%s *() *{ *$";
-			FUNC_ARG_SEP = " ";
-			EXEC_FMT = "source %s && %s";
-			EXEC_ARGS_FMT = "source %s && %s %s";
-			break;
-	}
-}
 
 Dotype get_type(char* path) {
 	const char* magic_type;
@@ -50,6 +33,25 @@ Dotype get_type(char* path) {
 	}
 	magic_close(magic_cookie);
 	return dotype;
+}
+
+
+void apply_type(Dotype dotype) {
+	switch (dotype) {
+		case PY:
+			FUNC_PATTERN = "^def *%s *(";
+			FUNC_ARG_SEP = ", ";
+			EXEC_FMT = "python -B -c \"exec(open('%s').read()); %s()\"";
+			EXEC_ARGS_FMT = "python -B -c \"exec(open('%s').read()); %s(%s)\"";
+			break;
+		case SH:
+		default:
+			FUNC_PATTERN = "^ *%s *() *{ *$";
+			FUNC_ARG_SEP = " ";
+			EXEC_FMT = "source %s && %s";
+			EXEC_ARGS_FMT = "source %s && %s %s";
+			break;
+	}
 }
 
 
@@ -76,19 +78,7 @@ char* get_dofile() {
 }
 
 
-char* get_cmd(int argc, char *argv[]) {
-	char *cmd;
-	if (argc > 1) {
-		asprintf(&cmd, "%s%s", DOFILE_PREFIX, argv[1]);
-	}
-	else {
-		asprintf(&cmd, "%s", DOFILE_PREFIX);
-	}
-	return cmd;
-}
-
-
-void get_cmd_args(Dotype dotype, int argc, char *argv[], char** cmd, char** args) {
+void get_args(int argc, char *argv[], char** func, char** args) {
 	if (argc > 2) {
 		size_t total = 1;
 		for (size_t i = 2; i < argc; ++i) {
@@ -103,21 +93,21 @@ void get_cmd_args(Dotype dotype, int argc, char *argv[], char** cmd, char** args
 	}
 
 	if (argc > 1) {
-		asprintf(cmd, "%s%s", DOFILE_PREFIX, argv[1]);
+		asprintf(func, "%s%s", DOFILE_PREFIX, argv[1]);
 	}
 	else {
-		asprintf(cmd, "%s", DOFILE_PREFIX);
+		asprintf(func, "%s", DOFILE_PREFIX);
 	}
 }
 
 
-bool has_cmd(char* dofile, Dotype dotype, char* cmd) {
+bool has_func(char* dofile, char* func) {
+	regex_t func_re;
 	char *pattern;
-	regex_t cmd_re;
-	asprintf(&pattern, FUNC_PATTERN, cmd); 
+	asprintf(&pattern, FUNC_PATTERN, func);
 
 	// compile regex
-	int r = regcomp(&cmd_re, pattern, REG_NOSUB|REG_NEWLINE);
+	int r = regcomp(&func_re, pattern, REG_NOSUB|REG_NEWLINE);
 	free(pattern);
 	DIE_IF(r, "Can't compile regex.");
 
@@ -127,60 +117,51 @@ bool has_cmd(char* dofile, Dotype dotype, char* cmd) {
 
 	char buffer[1024];
 	while (fgets(buffer, 1024, fp)) {
-		r = regexec(&cmd_re, buffer, 0, NULL, 0);
+		r = regexec(&func_re, buffer, 0, NULL, 0);
 		if (r == 0) {
 			break;
 		}
 	}
 	fclose(fp);
 
-	regfree(&cmd_re);
+	regfree(&func_re);
 	return r == 0 ? true : false;
 }
 
 
-void run_cmd(char* dofile, Dotype dotype, char* cmd) {
-	// TODO: ARGS
-	char* cmd_full;
-	asprintf(&cmd_full, EXEC_FMT, dofile, cmd);
-	system(cmd_full);
-	free(cmd_full);
-}
-
-
-void run_cmd_args(char* dofile, Dotype dotype, char* cmd_name, char* cmd_args) {
-	char* cmd_full;
-	asprintf(&cmd_full, EXEC_ARGS_FMT, dofile, cmd_name, cmd_args);
-	system(cmd_full);
-	free(cmd_full);
+void run_func(char* dofile, char* func, char* args) {
+	char* func_full;
+	if (args) {
+		asprintf(&func_full, EXEC_ARGS_FMT, dofile, func, args);
+	}
+	else {
+		asprintf(&func_full, EXEC_FMT, dofile, func);
+	}
+	system(func_full);
+	free(func_full);
 }
 
 
 int main(int argc, char *argv[]) {
 	char *dofile = get_dofile();
 	if (dofile) {
+		// determine filetype and apply settings
 		Dotype dotype = get_type(dofile);
 		apply_type(dotype);
 		DIE_IF(dotype == UNKNOWN, "Dofile has unknown type");
 
-		char *cmd_name = NULL;
-		char *cmd_args = NULL;
-		get_cmd_args(dotype, argc, argv, &cmd_name, &cmd_args);
-		/* printf("DOFILE: %s\n", dofile); */
-		/* printf("CMD: %s\n", cmd_name); */
-		/* printf("CMD_ARGS: %s\n", cmd_args); */
-		DIE_IF(!has_cmd(dofile, dotype, cmd_name), "Unknown command");
+		// build function name and args
+		char *func = NULL;
+		char *args = NULL;
+		get_args(argc, argv, &func, &args);
+
+		DIE_IF(!has_func(dofile, func), "Unknown command");
 		// if arg is path -> init Dofile in path
 
-		if (cmd_args) {
-			run_cmd_args(dofile, dotype, cmd_name, cmd_args);
-		}
-		else {
-			run_cmd(dofile, dotype, cmd_name);
-		}
+		run_func(dofile, func, args);
 
-		free(cmd_name);
-		free(cmd_args);
+		free(func);
+		free(args);
 		free(dofile);
 	}
 	else {
