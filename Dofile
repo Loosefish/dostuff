@@ -29,6 +29,9 @@ do_test() {
 	tup
 	test_generic "do-py"
 	test_generic "do-sh"
+	cp "do-sh" "../../do-rec"
+	test_generic "do-rec"
+	rm "../../do-rec"
 }
 
 

@@ -20,7 +20,7 @@ typedef enum Dotype Dotype;
 Dotype get_type(char* path);
 void apply_type(Dotype dotype);
 char* get_dofile_name();
-char* get_dofile();
+char* get_dofile_rec();
 void get_args(int argc, char *argv[], char** func, char** args);
 bool has_func(char* dofile, char* func);
 void run_func(char* dofile, char* func, char* args);

@@ -1,3 +1,5 @@
+// TODO: list functions
+// TODO: DOFILE as list of filenames?
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,20 +63,23 @@ char* get_dofile_name() {
 }
 
 
-char* get_dofile() {
-	// get working dir and Dofile name
-	char* cwd = getcwd(NULL, 0);
-	DIE_IF(!cwd, "Can't locate current dir");
-	char* dofile = get_dofile_name();
+char* get_dofile_rec() {
+	// TODO: portability?
+	char* dofile;
+	char* wd;
+	for (;;) {
+		wd = getcwd(NULL, 0);
+		asprintf(&dofile, "%s%s%s", wd, PATH_SEP, get_dofile_name());
+		if (access(dofile, R_OK) == 0) {
+			free(wd);
+			return dofile;
+		}
+		DIE_IF(strcmp("/", wd) == 0, "Can't locate Dofile");
 
-	// build expected path for Dofile
-	char* dopath;
-	asprintf(&dopath, "%s%s%s", cwd, PATH_SEP, dofile);
-
-	free(cwd);
-	// check if Dofile is readable
-	DIE_IF(access(dopath, R_OK), "Can't read Dofile");
-	return dopath;
+		free(wd);
+		free(dofile);
+		DIE_IF(chdir("..") != 0, "Can't locate Dofile");
+	}
 }
 
 
@@ -143,7 +148,7 @@ void run_func(char* dofile, char* func, char* args) {
 
 
 int main(int argc, char *argv[]) {
-	char *dofile = get_dofile();
+	char *dofile = get_dofile_rec();
 	if (dofile) {
 		// determine filetype and apply settings
 		Dotype dotype = get_type(dofile);
