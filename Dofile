@@ -36,7 +36,9 @@ do_test() {
 
 
 test_generic() {
+	echo "================"
 	DOFILE="$1" ./dostuff
 	DOFILE="$1" ./dostuff "test"
 	DOFILE="$1" ./dostuff args 1 2 4 8
+	DOFILE="$1" ./dostuff -f
 }

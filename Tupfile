@@ -1,2 +1,3 @@
-: foreach *.c |> gcc -g -Wall -std=gnu99 -c %f -o %o |> %B.o
+CFLAGS = -Wall -std=gnu99 -O3
+: foreach *.c |> gcc $(CFLAGS) -c %f -o %o |> %B.o
 : *.o |> gcc -lmagic %f -o %o |> dostuff

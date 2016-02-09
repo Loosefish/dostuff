@@ -155,18 +155,24 @@ int main(int argc, char *argv[]) {
 		apply_type(dotype);
 		DIE_IF(dotype == UNKNOWN, "Dofile has unknown type");
 
-		// build function name and args
-		char *func = NULL;
-		char *args = NULL;
-		get_args(argc, argv, &func, &args);
+		if (argc > 1 && strcmp(argv[1], "-f") == 0) {
+			// print dofile path and exit
+			printf("%s\n", dofile);
+		}
+		else {
+			// build function name and args
+			char *func = NULL;
+			char *args = NULL;
+			get_args(argc, argv, &func, &args);
 
-		DIE_IF(!has_func(dofile, func), "Unknown command");
-		// if arg is path -> init Dofile in path
+			DIE_IF(!has_func(dofile, func), "Unknown command");
+			// if arg is path -> init Dofile in path
 
-		run_func(dofile, func, args);
+			run_func(dofile, func, args);
 
-		free(func);
-		free(args);
+			free(func);
+			free(args);
+		}
 		free(dofile);
 	}
 	else {
