@@ -1,3 +1,4 @@
 CFLAGS = -Wall -std=gnu99 -O3
+LIBS = -lmagic
 : foreach *.c |> gcc $(CFLAGS) -c %f -o %o |> %B.o
-: *.o |> gcc -lmagic %f -o %o |> dostuff
+: *.o |> gcc $(LIBS) %f -o %o |> dostuff

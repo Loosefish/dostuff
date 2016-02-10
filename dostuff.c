@@ -1,4 +1,3 @@
-// TODO: list functions
 // TODO: DOFILE as list of filenames?
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -20,8 +19,8 @@ char *EXEC_ARGS_FMT = NULL;
 Dotype get_type(char* path) {
 	const char* magic_type;
 	magic_t magic_cookie = magic_open(MAGIC_MIME);
-	DIE_IF(!magic_cookie, "Failed to initialize magic library");
-	DIE_IF(magic_load(magic_cookie, NULL), "Failed to load magic database");
+	DIE_IF(!magic_cookie, "Can't initialize magic library");
+	DIE_IF(magic_load(magic_cookie, NULL), "Can't load magic database");
 
 	magic_type = magic_file(magic_cookie, path);
 	Dotype dotype = UNKNOWN;
@@ -149,33 +148,28 @@ void run_func(char* dofile, char* func, char* args) {
 
 int main(int argc, char *argv[]) {
 	char *dofile = get_dofile_rec();
-	if (dofile) {
-		// determine filetype and apply settings
-		Dotype dotype = get_type(dofile);
-		apply_type(dotype);
-		DIE_IF(dotype == UNKNOWN, "Dofile has unknown type");
+	// determine filetype and apply settings
+	Dotype dotype = get_type(dofile);
+	DIE_IF(dotype == UNKNOWN, "Dofile has unknown type");
+	apply_type(dotype);
 
-		if (argc > 1 && strcmp(argv[1], "-f") == 0) {
-			// print dofile path and exit
-			printf("%s\n", dofile);
-		}
-		else {
-			// build function name and args
-			char *func = NULL;
-			char *args = NULL;
-			get_args(argc, argv, &func, &args);
-
-			DIE_IF(!has_func(dofile, func), "Unknown command");
-			// if arg is path -> init Dofile in path
-
-			run_func(dofile, func, args);
-
-			free(func);
-			free(args);
-		}
-		free(dofile);
+	// check arguments
+	if (argc > 1 && strcmp(argv[1], "-f") == 0) {
+		// print dofile path and exit
+		printf("%s\n", dofile);
 	}
 	else {
-		printf("No Dofile!\n");
+		// build function name and args
+		char *func = NULL;
+		char *args = NULL;
+		get_args(argc, argv, &func, &args);
+
+		// check if function exists and run it
+		DIE_IF(!has_func(dofile, func), "Unknown command");
+		run_func(dofile, func, args);
+
+		free(func);
+		free(args);
 	}
+	free(dofile);
 }
