@@ -1,7 +1,7 @@
 CFLAGS = -Wall
 CFLAGS += -std=gnu99
 CFLAGS += -O3
-CFLAGS += -g
+# CFLAGS += -g
 LIBS = -lmagic
 : foreach *.c |> gcc $(CFLAGS) -c %f -o %o |> %B.o
 : *.o |> gcc $(LIBS) %f -o %o |> dostuff

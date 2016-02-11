@@ -13,6 +13,8 @@
         exit(EXIT_FAILURE); \
     }
 
+#define FREE_NULL(p) { free(p); p = NULL; }
+
 
 enum Dotype {UNKNOWN, PY, SH};
 typedef enum Dotype Dotype;

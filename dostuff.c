@@ -73,15 +73,16 @@ char* get_dofile_rec() {
 	for (;;) {
 		wd = getcwd(NULL, 0);
 		asprintf(&dofile, "%s%s%s", wd, PATH_SEP, get_dofile_name());
+		DIE_IF(!dofile, "Can't allocate memory");
 		if (access(dofile, R_OK) == 0) {
-			free(wd);
+			FREE_NULL(wd);
 			return dofile;
 		}
-		DIE_IF(strcmp("/", wd) == 0, "Can't locate Dofile");
+		DIE_IF(strcmp("/", wd) == 0, "Can't locate dofile");
 
-		free(wd);
-		free(dofile);
-		DIE_IF(chdir("..") != 0, "Can't locate Dofile");
+		FREE_NULL(wd);
+		FREE_NULL(dofile);
+		DIE_IF(chdir("..") != 0, "Can't locate dofile");
 	}
 }
 
@@ -93,6 +94,7 @@ void get_args(int argc, char *argv[], char** func, char** args) {
 			total += strlen(argv[i]);
 		}
 		*args = calloc(total + 1 + ((argc - 3) * strlen(FUNC_ARG_SEP)), 1);
+		DIE_IF(!args, "Can't allocate memory");
 		strcpy(*args, argv[2]);
 		for (size_t i = 3; i < argc; ++i) {
 			strcat(*args, FUNC_ARG_SEP);
@@ -106,6 +108,7 @@ void get_args(int argc, char *argv[], char** func, char** args) {
 	else {
 		asprintf(func, "%s", DOFILE_PREFIX);
 	}
+	DIE_IF(!func, "Can't allocate memory");
 }
 
 
@@ -113,15 +116,16 @@ bool has_func(char* dofile, char* func) {
 	regex_t func_re;
 	char *pattern;
 	asprintf(&pattern, FUNC_PATTERN, func);
+	DIE_IF(!pattern, "Can't allocate memory");
 
 	// compile regex
 	int r = regcomp(&func_re, pattern, REG_NOSUB|REG_NEWLINE);
-	free(pattern);
+	FREE_NULL(pattern);
 	DIE_IF(r, "Can't compile regex.");
 
 	// check lines in dofile against regex
 	FILE* fp = fopen(dofile, "r");
-	DIE_IF(!fp, "Can't open Dofile");
+	DIE_IF(!fp, "Can't open dofile");
 
 	char buffer[1024];
 	while (fgets(buffer, 1024, fp)) {
@@ -142,15 +146,16 @@ void print_funcs(char* dofile) {
 	size_t nmatch = 2;
 	regmatch_t pmatch[2];
 	asprintf(&pattern, NAME_PATTERN, DOFILE_PREFIX);
+	DIE_IF(!pattern, "Can't allocate memory");
 
 	// compile regex
 	int r = regcomp(&func_re, pattern, REG_NEWLINE);
-	free(pattern);
+	FREE_NULL(pattern);
 	DIE_IF(r, "Can't compile regex.");
 
 	// check lines in dofile against regex
 	FILE* fp = fopen(dofile, "r");
-	DIE_IF(!fp, "Can't open Dofile");
+	DIE_IF(!fp, "Can't open dofile");
 
 	char buffer[1024];
 	while (fgets(buffer, 1024, fp)) {
@@ -173,8 +178,9 @@ void run_func(char* dofile, char* func, char* args) {
 	else {
 		asprintf(&func_full, EXEC_FMT, dofile, func);
 	}
+	DIE_IF(!func_full, "Can't allocate memory");
 	system(func_full);
-	free(func_full);
+	FREE_NULL(func_full);
 }
 
 
@@ -217,8 +223,8 @@ int main(int argc, char *argv[]) {
 		DIE_IF(!has_func(dofile, func), "Unknown command");
 		run_func(dofile, func, args);
 
-		free(func);
-		free(args);
+		FREE_NULL(func);
+		FREE_NULL(args);
 	}
-	free(dofile);
+	FREE_NULL(dofile);
 }
