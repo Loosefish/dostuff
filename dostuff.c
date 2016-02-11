@@ -1,3 +1,4 @@
+// TODO: Magic comments for declaring "local" functions (flag also?)
 // TODO: DOFILE as list of filenames?
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -12,6 +13,7 @@
 
 char *FUNC_PATTERN = NULL;
 char *FUNC_ARG_SEP = NULL;
+char *NAME_PATTERN = NULL;
 char *EXEC_FMT = NULL;
 char *EXEC_ARGS_FMT = NULL;
 
@@ -42,6 +44,7 @@ void apply_type(Dotype dotype) {
 		case PY:
 			FUNC_PATTERN = "^def *%s *(";
 			FUNC_ARG_SEP = ", ";
+			NAME_PATTERN = "^def *%s\\([[:alnum:]]*\\) *(";
 			EXEC_FMT = "python -B -c \"exec(open('%s').read()); %s()\"";
 			EXEC_ARGS_FMT = "python -B -c \"exec(open('%s').read()); %s(%s)\"";
 			break;
@@ -49,6 +52,7 @@ void apply_type(Dotype dotype) {
 		default:
 			FUNC_PATTERN = "^ *%s *() *{ *$";
 			FUNC_ARG_SEP = " ";
+			NAME_PATTERN = "^ *%s\\([[:alnum:]]*\\) *() *{ *$";
 			EXEC_FMT = "source %s && %s";
 			EXEC_ARGS_FMT = "source %s && %s %s";
 			break;
@@ -132,6 +136,34 @@ bool has_func(char* dofile, char* func) {
 	return r == 0 ? true : false;
 }
 
+void print_funcs(char* dofile) {
+	regex_t func_re;
+	char *pattern;
+	size_t nmatch = 2;
+	regmatch_t pmatch[2];
+	asprintf(&pattern, NAME_PATTERN, DOFILE_PREFIX);
+
+	// compile regex
+	int r = regcomp(&func_re, pattern, REG_NEWLINE);
+	free(pattern);
+	DIE_IF(r, "Can't compile regex.");
+
+	// check lines in dofile against regex
+	FILE* fp = fopen(dofile, "r");
+	DIE_IF(!fp, "Can't open Dofile");
+
+	char buffer[1024];
+	while (fgets(buffer, 1024, fp)) {
+		r = regexec(&func_re, buffer, nmatch, pmatch, 0);
+		if (r == 0) {
+			buffer[pmatch[1].rm_eo] = 0;
+			printf("%s\n", buffer + pmatch[1].rm_so);
+		}
+	}
+	fclose(fp);
+	regfree(&func_re);
+}
+
 
 void run_func(char* dofile, char* func, char* args) {
 	char* func_full;
@@ -147,8 +179,21 @@ void run_func(char* dofile, char* func, char* args) {
 
 
 int main(int argc, char *argv[]) {
+	if (argc > 1 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)) {
+		// print function names and exit
+		fprintf(
+			stderr,
+			"Usage: %s [-f | -l | FUNCTION [ARG1 ...]]\n%s\n%s\n%s\n",
+			argv[0],
+			"  -f                   Print path of the local dofile",
+			"  -l                   Print local functions",
+			"  FUNCTION [ARG1 ...]  Call local function with optional arguments"
+		);
+		return EXIT_SUCCESS;
+	}
+
+	// get dofile, determine filetype and apply settings
 	char *dofile = get_dofile_rec();
-	// determine filetype and apply settings
 	Dotype dotype = get_type(dofile);
 	DIE_IF(dotype == UNKNOWN, "Dofile has unknown type");
 	apply_type(dotype);
@@ -157,6 +202,10 @@ int main(int argc, char *argv[]) {
 	if (argc > 1 && strcmp(argv[1], "-f") == 0) {
 		// print dofile path and exit
 		printf("%s\n", dofile);
+	}
+	else if (argc > 1 && strcmp(argv[1], "-l") == 0) {
+		// print function names and exit
+		print_funcs(dofile);
 	}
 	else {
 		// build function name and args
