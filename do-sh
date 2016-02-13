@@ -1,11 +1,11 @@
 #!/bin/sh
 
 do_ () {
-	echo Default
+	ls|wc -l
 }
 
-do_test() {
-	wc -l Dofile
+do_test() { # do_local
+	wc -l dostuff.c
 }
 
 do_args() {

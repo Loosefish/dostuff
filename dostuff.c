@@ -1,21 +1,23 @@
 // TODO: Magic comments for declaring "local" functions (flag also?)
 // TODO: DOFILE as list of filenames?
 #define _GNU_SOURCE
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <unistd.h>
+#include <libgen.h>
 #include <magic.h>
 #include <regex.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "dostuff.h"
 
-char *FUNC_PATTERN = NULL;
-char *FUNC_ARG_SEP = NULL;
-char *NAME_PATTERN = NULL;
-char *EXEC_FMT = NULL;
 char *EXEC_ARGS_FMT = NULL;
+char *EXEC_FMT = NULL;
+char *FUNC_ARG_SEP = NULL;
+char *FUNC_LOCAL_SUF = NULL;
+char *FUNC_PATTERN = NULL;
+char *NAME_PATTERN = NULL;
 
 
 Dotype get_type(char* path) {
@@ -42,19 +44,21 @@ Dotype get_type(char* path) {
 void apply_type(Dotype dotype) {
 	switch (dotype) {
 		case PY:
-			FUNC_PATTERN = "^def *%s *(";
-			FUNC_ARG_SEP = ", ";
-			NAME_PATTERN = "^def *%s\\([[:alnum:]]*\\) *(";
-			EXEC_FMT = "python -B -c \"exec(open('%s').read()); %s()\"";
 			EXEC_ARGS_FMT = "python -B -c \"exec(open('%s').read()); %s(%s)\"";
+			EXEC_FMT = "python -B -c \"exec(open('%s').read()); %s()\"";
+			FUNC_ARG_SEP = ", ";
+			FUNC_LOCAL_SUF = "do_local";
+			FUNC_PATTERN = "^def *%s *(";
+			NAME_PATTERN = "^def *%s\\([[:alnum:]]*\\) *(";
 			break;
 		case SH:
 		default:
-			FUNC_PATTERN = "^ *%s *() *{ *$";
-			FUNC_ARG_SEP = " ";
-			NAME_PATTERN = "^ *%s\\([[:alnum:]]*\\) *() *{ *$";
-			EXEC_FMT = "source %s && %s";
 			EXEC_ARGS_FMT = "source %s && %s %s";
+			EXEC_FMT = "source %s && %s";
+			FUNC_ARG_SEP = " ";
+			FUNC_LOCAL_SUF = "do_local";
+			FUNC_PATTERN = "^ *%s *() *{ *";
+			NAME_PATTERN = "^ *%s\\([[:alnum:]]*\\) *() *{ *";
 			break;
 	}
 }
@@ -67,78 +71,20 @@ char* get_dofile_name() {
 
 
 char* get_dofile_rec() {
-	// TODO: portability?
-	char* dofile;
-	char* wd;
+	char *dir = getcwd(NULL, 0);
+	char *buf = calloc(strlen(dir) + strlen(get_dofile_name()) + 2, 1);
+
 	for (;;) {
-		wd = getcwd(NULL, 0);
-		asprintf(&dofile, "%s%s%s", wd, PATH_SEP, get_dofile_name());
-		DIE_IF(!dofile, "Can't allocate memory");
-		if (access(dofile, R_OK) == 0) {
-			FREE_NULL(wd);
-			return dofile;
+		sprintf(buf, "%s/%s", dir, get_dofile_name());
+		if (access(buf, R_OK) == 0) {
+			FREE_NULL(dir);
+			return buf;
 		}
-		DIE_IF(strcmp("/", wd) == 0, "Can't locate dofile");
-
-		FREE_NULL(wd);
-		FREE_NULL(dofile);
-		DIE_IF(chdir("..") != 0, "Can't locate dofile");
+		DIE_IF(strcmp(dir, "/") == 0, "Can't locate dofile");
+		dir = dirname(dir);
 	}
 }
 
-
-void get_args(int argc, char *argv[], char** func, char** args) {
-	if (argc > 2) {
-		size_t total = 1;
-		for (size_t i = 2; i < argc; ++i) {
-			total += strlen(argv[i]);
-		}
-		*args = calloc(total + 1 + ((argc - 3) * strlen(FUNC_ARG_SEP)), 1);
-		DIE_IF(!args, "Can't allocate memory");
-		strcpy(*args, argv[2]);
-		for (size_t i = 3; i < argc; ++i) {
-			strcat(*args, FUNC_ARG_SEP);
-			strcat(*args, argv[i]);
-		}
-	}
-
-	if (argc > 1) {
-		asprintf(func, "%s%s", DOFILE_PREFIX, argv[1]);
-	}
-	else {
-		asprintf(func, "%s", DOFILE_PREFIX);
-	}
-	DIE_IF(!func, "Can't allocate memory");
-}
-
-
-bool has_func(char* dofile, char* func) {
-	regex_t func_re;
-	char *pattern;
-	asprintf(&pattern, FUNC_PATTERN, func);
-	DIE_IF(!pattern, "Can't allocate memory");
-
-	// compile regex
-	int r = regcomp(&func_re, pattern, REG_NOSUB|REG_NEWLINE);
-	FREE_NULL(pattern);
-	DIE_IF(r, "Can't compile regex.");
-
-	// check lines in dofile against regex
-	FILE* fp = fopen(dofile, "r");
-	DIE_IF(!fp, "Can't open dofile");
-
-	char buffer[1024];
-	while (fgets(buffer, 1024, fp)) {
-		r = regexec(&func_re, buffer, 0, NULL, 0);
-		if (r == 0) {
-			break;
-		}
-	}
-	fclose(fp);
-
-	regfree(&func_re);
-	return r == 0 ? true : false;
-}
 
 void print_funcs(char* dofile) {
 	regex_t func_re;
@@ -167,6 +113,76 @@ void print_funcs(char* dofile) {
 	}
 	fclose(fp);
 	regfree(&func_re);
+}
+
+
+void get_func(int argc, char *argv[], char** func, char** args) {
+	if (argc > 2) {
+		size_t total = 1;
+		for (size_t i = 2; i < argc; ++i) {
+			total += strlen(argv[i]);
+		}
+		*args = calloc(total + 1 + ((argc - 3) * strlen(FUNC_ARG_SEP)), 1);
+		DIE_IF(!args, "Can't allocate memory");
+		strcpy(*args, argv[2]);
+		for (size_t i = 3; i < argc; ++i) {
+			strcat(*args, FUNC_ARG_SEP);
+			strcat(*args, argv[i]);
+		}
+	}
+
+	if (argc > 1) {
+		asprintf(func, "%s%s", DOFILE_PREFIX, argv[1]);
+	}
+	else {
+		asprintf(func, "%s", DOFILE_PREFIX);
+	}
+	DIE_IF(!func, "Can't allocate memory");
+}
+
+
+void prep_func(char* dofile, char* func) {
+	regex_t func_re;
+	char *pattern;
+	asprintf(&pattern, FUNC_PATTERN, func);
+	DIE_IF(!pattern, "Can't allocate memory");
+
+	// compile regex
+	int r = regcomp(&func_re, pattern, REG_NOSUB|REG_NEWLINE);
+	FREE_NULL(pattern);
+	DIE_IF(r, "Can't compile regex.");
+
+	// check lines in dofile against regex
+	FILE* fp = fopen(dofile, "r");
+	DIE_IF(!fp, "Can't open dofile");
+
+	char buffer[1024];
+	while (fgets(buffer, 1024, fp)) {
+		r = regexec(&func_re, buffer, 0, NULL, 0);
+		if (r == 0) {
+			set_cwd(dofile, buffer);
+			fclose(fp);
+			regfree(&func_re);
+			return;
+		}
+	}
+	fprintf(stderr, "Can't locate function '%s'\n", func);
+	exit(EXIT_FAILURE);
+}
+
+
+void set_cwd(char* dofile, char* func_line) {
+	size_t suf_n = strlen(FUNC_LOCAL_SUF);
+	if (strncmp(func_line + strlen(func_line) - 1 - suf_n, FUNC_LOCAL_SUF, suf_n) == 0) {
+		return;
+	}
+
+	size_t n = strlen(dofile) + 1;
+	char* tmp = malloc(n);
+	memcpy(tmp, dofile, n);
+	tmp = dirname(tmp);
+	DIE_IF(chdir(tmp), "Can't set working directory.");
+	FREE_NULL(tmp);
 }
 
 
@@ -217,10 +233,10 @@ int main(int argc, char *argv[]) {
 		// build function name and args
 		char *func = NULL;
 		char *args = NULL;
-		get_args(argc, argv, &func, &args);
+		get_func(argc, argv, &func, &args);
 
-		// check if function exists and run it
-		DIE_IF(!has_func(dofile, func), "Unknown command");
+		// check if function exists, set working dir and run
+		prep_func(dofile, func);
 		run_func(dofile, func, args);
 
 		FREE_NULL(func);

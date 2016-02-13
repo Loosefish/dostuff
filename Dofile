@@ -1,6 +1,6 @@
 #!/bin/sh
 
-do_() {
+do_() { # do_local
 	echo "Nothing"
 }
 
