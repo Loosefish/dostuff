@@ -1,6 +1,6 @@
 /* TODO
  * Flag for forced local execution?
- * DOFILE as list of filenames?
+ * DOFILE as list of filenames? -> Multiple dofiles per dir?
  */
 #define _GNU_SOURCE
 #include <libgen.h>
@@ -15,6 +15,8 @@
 #include "dostuff.h"
 
 
+bool LOCAL = false;
+
 char* EXEC_ARGS_FMT = NULL;
 char* EXEC_FMT = NULL;
 char* FUNC_ARG_SEP = NULL;
@@ -24,7 +26,7 @@ char* NAME_PATTERN = NULL;
 
 
 /* Look for dofiles recursively upwards.
- * Returns: NULL-terminated array of pathnames as char*.
+ * Returns: NULL-terminated array of pathnames.
  */
 char** get_dofiles() {
 	size_t n = 0;
@@ -169,6 +171,7 @@ void get_func(int argc, char* argv[], char** func, char** args) {
 
 /* Checks if a function exists in a dofile and sets the working directory
  * according to the function definition.
+ * Returns: true if function exists in file, false otherwise.
  */
 bool prep_func(char* dofile, char* func) {
 	regex_t func_re;
@@ -198,14 +201,16 @@ bool prep_func(char* dofile, char* func) {
 	return r == 0 ? true : false;
 }
 
+
 /* Sets the working directory according to the given function definition.
  * If the function is to be executed globally, the working directory is set to
  * the directory containing the dofile.
  */
 void set_cwd(char* dofile, char* func_line) {
-	size_t suf_n = strlen(FUNC_LOCAL_SUF);
 	// TODO: Use regex? How safe is this?
-	if (strncmp(func_line + strlen(func_line) - 1 - suf_n, FUNC_LOCAL_SUF, suf_n) == 0) {
+	size_t suf_n = strlen(FUNC_LOCAL_SUF);
+	int offset = strlen(func_line) - 1 - suf_n;
+	if (LOCAL || offset < 0 || strncmp(func_line + offset, FUNC_LOCAL_SUF, suf_n) == 0) {
 		return;
 	}
 
@@ -286,11 +291,17 @@ int main(int argc, char* argv[]) {
 			df++;
 		}
 	}
-	else if (argc > 1 && strcmp(argv[1], "-l") == 0) {
+	else if (argc > 1 && strcmp(argv[1], "-p") == 0) {
 		// print function names and exit
 		print_funcs(dofiles);
 	}
 	else {
+		if (argc > 1 && strcmp(argv[1], "-l") == 0) {
+			// force local execution
+			LOCAL = true;
+			argc--;
+			argv = &argv[1];
+		}
 		execute(argc, argv, dofiles);
 	}
 

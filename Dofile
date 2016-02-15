@@ -1,44 +1,34 @@
 #!/bin/sh
 
-do_() { # do_local
-	echo "Nothing"
+do_() {
+	echo "[default]"
 }
 
-filetest() {
-	echo $1
-	echo $1 > dotest
-	DOFILE="dotest" ./dostuff
-	rm dotest
-	echo
-}
+do_valgrind() {
+	valgrind --error-exitcode=10 ./dostuff -f 2>/dev/null >/dev/null || echo "errors"
+	valgrind --error-exitcode=10 ./dostuff -p 2>/dev/null >/dev/null || echo "errors"
 
-do_filetypes() {
-	tup
-	filetest '#!/bin/sh'
-	filetest '#!/usr/bin/sh'
-	filetest '#!/usr/bin/env sh'
-	filetest '#!/bin/bash'
-	filetest '#!/usr/bin/bash'
-	filetest '#!/usr/bin/env bash'
-	filetest '#!/bin/python'
-	filetest '#!/usr/bin/python'
-	filetest '#!/usr/bin/env python'
-}
+	valgrind --error-exitcode=10 ./dostuff 2>/dev/null >/dev/null || echo "errors"
+	valgrind --error-exitcode=10 ./dostuff normal 2>/dev/null >/dev/null || echo "errors"
+	valgrind --error-exitcode=10 ./dostuff args 100 200 300 ABC 2>/dev/null >/dev/null || echo "errors"
 
-do_test() {
-	tup
-	test_generic "do-py"
-	test_generic "do-sh"
-	cp "do-sh" "../../do-rec"
-	test_generic "do-rec"
-	rm "../../do-rec"
+	cp Dofile ../Dorec
+
+	DOFILE="Dorec" valgrind --error-exitcode=10 ./dostuff 2>/dev/null >/dev/null || echo "errors"
+	DOFILE="Dorec" valgrind --error-exitcode=10 ./dostuff normal 2>/dev/null >/dev/null || echo "errors"
+	DOFILE="Dorec" valgrind --error-exitcode=10 ./dostuff args 100 200 300 ABC 2>/dev/null >/dev/null || echo "errors"
+
+	rm ../Dorec
 }
 
 
-test_generic() {
-	echo "================"
-	DOFILE="$1" ./dostuff
-	DOFILE="$1" ./dostuff "test"
-	DOFILE="$1" ./dostuff args 1 2 4 8
-	DOFILE="$1" ./dostuff -f
+do_normal() {
+	pwd
+	ls|wc -l
+}
+
+
+do_args() {
+	pwd
+	echo "$@"
 }
