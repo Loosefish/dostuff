@@ -269,10 +269,11 @@ int main(int argc, char* argv[]) {
 	if (argc > 1 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)) {
 		fprintf(
 		    stderr,
-		    "Usage: %s [-f | -l | FUNCTION [ARG1 ...]]\n%s\n%s\n%s\n",
+		    "Usage: %s [-f | -p | [-l] FUNCTION [ARG1 ...]]\n%s\n%s\n%s\n%s\n",
 		    argv[0],
-		    "  -f                   Print path of the local dofile",
-		    "  -l                   Print local functions",
+		    "  -f                   Print paths of available dofiles",
+		    "  -p                   Print names of available functions",
+		    "  -l                   Force execution in current working directory",
 		    "  FUNCTION [ARG1 ...]  Call local function with optional arguments"
 		);
 		return EXIT_SUCCESS;
