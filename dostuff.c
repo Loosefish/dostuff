@@ -262,6 +262,7 @@ void execute(int argc, char* argv[], char** dofiles) {
 		FREE_NULL(args);
 		df++;
 	}
+	DIE_IF(!done, "No such function");
 }
 
 
