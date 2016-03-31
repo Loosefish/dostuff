@@ -94,8 +94,8 @@ void apply_type(Dotype dotype) {
 			break;
 		case SH:
 		default:
-			EXEC_ARGS_FMT = "source %s && %s %s";
-			EXEC_FMT = "source %s && %s";
+			EXEC_ARGS_FMT = "source \"%s\" && %s %s";
+			EXEC_FMT = "source \"%s\" && %s";
 			FUNC_ARG_SEP = " ";
 			FUNC_LOCAL_SUF = "do_local";
 			FUNC_PATTERN = "^ *%s *() *{ *";
