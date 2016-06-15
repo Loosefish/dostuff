@@ -210,7 +210,7 @@ void set_cwd(char* dofile, char* func_line) {
 	// TODO: Use regex? How safe is this?
 	size_t suf_n = strlen(FUNC_LOCAL_SUF);
 	int offset = strlen(func_line) - 1 - suf_n;
-	if (LOCAL || offset < 0 || strncmp(func_line + offset, FUNC_LOCAL_SUF, suf_n) == 0) {
+	if (LOCAL || (offset > 0 && strncmp(func_line + offset, FUNC_LOCAL_SUF, suf_n) == 0)) {
 		return;
 	}
 
