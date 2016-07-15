@@ -1,0 +1,13 @@
+#!/bin/sh
+
+do_ () {
+	cabal build
+}
+
+do_clean () {
+	cabal clean
+}
+
+do_echo () {
+	echo "$@"
+}
