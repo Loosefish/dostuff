@@ -1,6 +1,12 @@
 #!/bin/sh
 
+target=dist/build/dostuff/dostuff
+
 do_ () {
+	do_build
+}
+
+do_build () {
 	cabal build
 }
 
@@ -10,4 +16,15 @@ do_clean () {
 
 do_echo () {
 	echo "$@"
+}
+
+do_test () {
+	for t in tests/*; do
+		echo -n "${t}: "
+		if ${t} ${target}; then
+			echo -e "\e[32msuccess\e[0m"
+		else
+			echo -e "\e[31mfailure\e[0m"
+		fi
+	done
 }
