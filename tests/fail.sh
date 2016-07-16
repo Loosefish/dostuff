@@ -1,4 +1,5 @@
 #!/bin/bash
+# call a non-existant function
 ds=$(realpath "$1")
 dir=$(mktemp -d)
 

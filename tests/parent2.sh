@@ -1,5 +1,5 @@
 #!/bin/bash
-# call function with same name in a child dir
+# call funtion in parent dir with Dofile in child dir
 ds=$(realpath "$1")
 dir=$(mktemp -d)
 
@@ -12,19 +12,21 @@ do_foo () {
 }
 EOF
 
+
 mkdir child
 cd child
 
 cat > Dofile << EOF
 #!/bin/sh
-do_foo () {
+do_bar () {
 	echo -n "6447"
 }
 EOF
 
+
 out=$(${ds} foo)
 ret=$?
-if [ "$out" != "6447" ]; then
+if [ "$out" != "6446" ]; then
 	ret=1
 fi
 

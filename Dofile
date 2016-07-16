@@ -1,5 +1,4 @@
 #!/bin/sh
-
 target=dist/build/dostuff/dostuff
 
 do_ () {
@@ -19,9 +18,9 @@ do_echo () {
 }
 
 do_test () {
-	for t in tests/*; do
+	for t in tests/*.sh; do
 		echo -n "${t}: "
-		if ${t} ${target}; then
+		if ${t} ${target} 2>/dev/null; then
 			echo -e "\e[32msuccess\e[0m"
 		else
 			echo -e "\e[31mfailure\e[0m"

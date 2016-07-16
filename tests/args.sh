@@ -1,4 +1,5 @@
 #!/bin/bash
+# call function with arg
 ds=$(realpath "$1")
 dir=$(mktemp -d)
 

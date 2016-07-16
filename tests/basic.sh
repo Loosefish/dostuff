@@ -1,4 +1,5 @@
 #!/bin/bash
+# basic call of a named function
 ds=$(realpath "$1")
 dir=$(mktemp -d)
 

@@ -5,26 +5,31 @@ dir=$(mktemp -d)
 
 cd "${dir}"
 
+mkdir right
+cd right
+
 cat > Dofile << EOF
 #!/bin/sh
 do_foo () {
-	echo -n "6446"
+	echo -n "right"
 }
 EOF
 
-mkdir child
-cd child
+cd ..
+
+mkdir left
+cd left
 
 cat > Dofile << EOF
 #!/bin/sh
 do_foo () {
-	echo -n "6447"
+	echo -n "left"
 }
 EOF
 
 out=$(${ds} foo)
 ret=$?
-if [ "$out" != "6447" ]; then
+if [ "$out" != "left" ]; then
 	ret=1
 fi
 

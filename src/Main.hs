@@ -30,7 +30,7 @@ main = do
          ["-h"] -> usage
          ["--help"] -> usage
          (func : funcArgs) -> run func funcArgs
-         _ -> usage
+         [] -> run "" []
     exitSuccess
 
 

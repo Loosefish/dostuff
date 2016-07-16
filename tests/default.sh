@@ -1,5 +1,5 @@
 #!/bin/bash
-# call funtion in parent dir
+# call default function
 ds=$(realpath "$1")
 dir=$(mktemp -d)
 
@@ -7,15 +7,12 @@ cd "${dir}"
 
 cat > Dofile << EOF
 #!/bin/sh
-do_foo () {
+do_ () {
 	echo -n "6446"
 }
 EOF
 
-mkdir child
-cd child
-
-out=$(${ds} foo)
+out=$(${ds})
 ret=$?
 if [ "$out" != "6446" ]; then
 	ret=1
