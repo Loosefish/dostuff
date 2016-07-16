@@ -3,11 +3,8 @@ module Main (
     main
 ) where
 import Control.Monad 
-import Data.List (inits, unwords)
+import Data.List
 import Data.Maybe (fromMaybe, listToMaybe)
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy as T
-import qualified Data.Text.Lazy.IO as T
 import System.Directory
 import System.Environment
 import System.Exit
@@ -16,11 +13,15 @@ import System.IO
 import System.Process (callCommand)
 
 
-data Dofile = Dofile FilePath Format
-    deriving (Show)
-
 data Format = Shell
-    deriving (Show)
+    deriving (Show, Eq)
+
+data Dofile = Dofile
+    { dFile :: FilePath
+    , dFormat :: Format
+    , dFunctions :: [String]
+    } deriving (Show, Eq)
+
 
 
 main :: IO ()
@@ -30,8 +31,8 @@ main = do
          ["-h"] -> usage
          ["--help"] -> usage
          ["-f"] -> printDofiles
-         (func : funcArgs) -> run func funcArgs
-         [] -> run "" []
+         (func : funcArgs) -> execute func funcArgs
+         [] -> execute "" []
     exitSuccess
 
 
@@ -48,16 +49,7 @@ usage = do
 printDofiles :: IO ()
 printDofiles = do
     files <- dofiles
-    let fileNames = map (\(Dofile f _) -> f) files
-    mapM_ putStrLn fileNames
-
-
-run :: String -> [String] -> IO ()
-run func funcArgs = do
-    funcFile <- fmap listToMaybe (filterM (`provides` func) =<< dofiles)
-    case funcFile of
-         Just file -> execute file func funcArgs
-         Nothing -> die $ "No such function: " ++ func
+    mapM_ (putStrLn .dFile) files
 
 
 dofiles :: IO [Dofile]
@@ -65,22 +57,28 @@ dofiles = do
     filename <- fromMaybe "Dofile" <$> lookupEnv "DOFILE"
     here <- getCurrentDirectory
     let paths = map joinPath $ reverse $ drop 1 $ inits $ splitPath here
-    map toDofile <$> findFiles paths filename
+    files <- findFiles paths filename
+    mapM toDofile files
 
 
-toDofile :: FilePath -> Dofile
-toDofile file = Dofile file Shell
-
-
-provides :: Dofile -> String -> IO Bool
-provides (Dofile file Shell) func =
-    any (T.isPrefixOf funcFull) <$> normalLines
+toDofile :: FilePath -> IO Dofile
+toDofile file = do
+    normalLines <- map (filter (/= ' ')) . lines <$> readFile file
+    return $ Dofile file Shell $ map (takeWhile (/= '(')) $ filter isFunc normalLines
   where
-    normalLines = map (T.replace " " "") . T.lines <$> T.readFile file
-    funcFull = T.concat ["do_", T.pack func, "(){"]
+    isFunc l = isPrefixOf "do_" l && isPrefixOf "(){" (dropWhile (/= '(') l)
 
 
-execute :: Dofile -> String -> [String] -> IO ()
-execute (Dofile file Shell) func args = callCommand cmd
+execute :: String -> [String] -> IO ()
+execute func funcArgs = do
+    files <- dofiles
+    case filter (\d -> func' `elem` dFunctions d) files of
+         (file : _) -> call file func funcArgs
+         [] -> die $ "No such function: " ++ func
   where
-    cmd = "source " ++ file ++ " && do_" ++ func ++ " " ++ unwords args
+    func' = "do_" ++ func
+
+
+call :: Dofile -> String -> [String] -> IO ()
+call (Dofile file Shell _) func args =
+    callCommand $ unwords ["source", file, "&&", "do_" ++ func, unwords args]
