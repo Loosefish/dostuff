@@ -52,7 +52,7 @@ printDofiles = mapM_ (putStrLn . dFile) =<< dofiles
 
 printFunctions :: IO ()
 printFunctions = do
-    functions <- concatMap dFunctions <$> dofiles
+    functions <- nub . concatMap dFunctions <$> dofiles
     mapM_ putStrLn functions
 
 
