@@ -2,9 +2,8 @@
 module Main (
     main
 ) where
-import Control.Monad 
 import Data.List
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe
 import System.Directory
 import System.Environment
 import System.Exit
@@ -54,24 +53,32 @@ printDofiles = mapM_ (putStrLn . dFile) =<< dofiles
 printFunctions :: IO ()
 printFunctions = do
     functions <- concatMap dFunctions <$> dofiles
-    mapM_ (putStrLn . drop 3) functions
+    mapM_ putStrLn functions
 
 
 dofiles :: IO [Dofile]
 dofiles = do
     filename <- fromMaybe "Dofile" <$> lookupEnv "DOFILE"
-    here <- getCurrentDirectory
-    let paths = map joinPath $ reverse $ drop 1 $ inits $ splitPath here
+    paths <- parentPaths <$> getCurrentDirectory
     files <- findFiles paths filename
     mapM toDofile files
+  where
+    parentPaths = map joinPath . reverse . drop 1 . inits . splitPath
 
 
 toDofile :: FilePath -> IO Dofile
 toDofile file = do
     normalLines <- map (filter (/= ' ')) . lines <$> readFile file
-    return $ Dofile file Shell $ map (takeWhile (/= '(')) $ filter isFunc normalLines
+    return $ Dofile file format $ mapMaybe extractName normalLines
   where
-    isFunc l = isPrefixOf "do_" l && isPrefixOf "(){" (dropWhile (/= '(') l)
+    format = Shell
+    (prefix, suffix) = case format of
+        Shell -> ("do_", "(){")
+    extractName l = if suffix `isPrefixOf` rest
+        then stripPrefix prefix name
+        else Nothing
+      where
+        (name, rest) =  break (== head suffix) l
 
 
 funcName :: Format -> String -> String
@@ -85,9 +92,9 @@ execute func funcArgs = do
          (file : _) -> call file func funcArgs
          [] -> die $ "No such function: " ++ func
   where
-    providesFunc d = funcName (dFormat d) func `elem` dFunctions d
+    providesFunc d = func `elem` dFunctions d
 
 
 call :: Dofile -> String -> [String] -> IO ()
 call (Dofile file Shell _) func args =
-    callCommand $ unwords ["source", file, "&&", "do_" ++ func, unwords args]
+    callCommand $ unwords ["source", file, "&&", funcName Shell func, unwords args]
