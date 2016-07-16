@@ -31,6 +31,7 @@ main = do
          ["-h"] -> usage
          ["--help"] -> usage
          ["-f"] -> printDofiles
+         ["-p"] -> printFunctions
          (func : funcArgs) -> execute func funcArgs
          [] -> execute "" []
     exitSuccess
@@ -47,9 +48,13 @@ usage = do
 
 
 printDofiles :: IO ()
-printDofiles = do
-    files <- dofiles
-    mapM_ (putStrLn .dFile) files
+printDofiles = mapM_ (putStrLn . dFile) =<< dofiles
+
+
+printFunctions :: IO ()
+printFunctions = do
+    functions <- concatMap dFunctions <$> dofiles
+    mapM_ (putStrLn . drop 3) functions
 
 
 dofiles :: IO [Dofile]
@@ -69,14 +74,18 @@ toDofile file = do
     isFunc l = isPrefixOf "do_" l && isPrefixOf "(){" (dropWhile (/= '(') l)
 
 
+funcName :: Format -> String -> String
+funcName Shell func = "do_" ++ func
+
+
 execute :: String -> [String] -> IO ()
 execute func funcArgs = do
     files <- dofiles
-    case filter (\d -> func' `elem` dFunctions d) files of
+    case filter providesFunc files of
          (file : _) -> call file func funcArgs
          [] -> die $ "No such function: " ++ func
   where
-    func' = "do_" ++ func
+    providesFunc d = funcName (dFormat d) func `elem` dFunctions d
 
 
 call :: Dofile -> String -> [String] -> IO ()
