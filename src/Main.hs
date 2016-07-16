@@ -29,6 +29,7 @@ main = do
     case args of
          ["-h"] -> usage
          ["--help"] -> usage
+         ["-f"] -> printDofiles
          (func : funcArgs) -> run func funcArgs
          [] -> run "" []
     exitSuccess
@@ -42,6 +43,13 @@ usage = do
     hPutStrLn stderr "  -p                   Print names of available functions"
     hPutStrLn stderr "  -l                   Force execution in current working directory"
     hPutStrLn stderr "  FUNCTION [ARG1 ...]  Call local function with optional arguments"
+
+
+printDofiles :: IO ()
+printDofiles = do
+    files <- dofiles
+    let fileNames = map (\(Dofile f _) -> f) files
+    mapM_ putStrLn fileNames
 
 
 run :: String -> [String] -> IO ()
