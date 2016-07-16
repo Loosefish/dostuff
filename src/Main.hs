@@ -9,7 +9,7 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO
-import System.Process (callCommand)
+import System.Process (system)
 
 
 data Format = Shell
@@ -68,28 +68,27 @@ dofiles = do
 
 toDofile :: FilePath -> IO Dofile
 toDofile file = do
-    normalLines <- map (filter (/= ' ')) . lines <$> readFile file
-    return $ Dofile file format $ mapMaybe extractName normalLines
+    functions <- mapMaybe (extractName format) . lines <$> readFile file
+    return $ Dofile file format functions
   where
     format = Shell
-    (prefix, suffix) = case format of
-        Shell -> ("do_", "(){")
-    extractName l = if suffix `isPrefixOf` rest
+
+
+extractName :: Format -> String -> Maybe String
+extractName Shell line = if suffix `isPrefixOf` rest
         then stripPrefix prefix name
         else Nothing
-      where
-        (name, rest) =  break (== head suffix) l
-
-
-funcName :: Format -> String -> String
-funcName Shell func = "do_" ++ func
+  where
+    (prefix, suffix) = ("do_", "(){")
+    (name, rest) =  break (== head suffix) $ normal line
+    normal = filter (/= ' ') 
 
 
 execute :: String -> [String] -> IO ()
 execute func funcArgs = do
-    files <- dofiles
-    case filter providesFunc files of
-         (file : _) -> call file func funcArgs
+    does <- filter providesFunc <$> dofiles
+    case does of
+         (dofile : _) -> call dofile func funcArgs
          [] -> die $ "No such function: " ++ func
   where
     providesFunc d = func `elem` dFunctions d
@@ -98,4 +97,8 @@ execute func funcArgs = do
 call :: Dofile -> String -> [String] -> IO ()
 call (Dofile file Shell _) func args = do
     setCurrentDirectory $ takeDirectory file
-    callCommand $ unwords ["source", file, "&&", funcName Shell func, unwords args]
+    system (unwords ["source", file, "&&", funcName Shell func, unwords args]) >>= exitWith
+
+
+funcName :: Format -> String -> String
+funcName Shell func = "do_" ++ func
