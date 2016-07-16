@@ -17,7 +17,7 @@ cd child
 
 out=$(${ds} foo)
 ret=$?
-if [ "$out" != "$(pwd)" ]; then
+if [ "$out" != "${dir}" ]; then
 	ret=1
 fi
 

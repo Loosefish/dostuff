@@ -96,5 +96,6 @@ execute func funcArgs = do
 
 
 call :: Dofile -> String -> [String] -> IO ()
-call (Dofile file Shell _) func args =
+call (Dofile file Shell _) func args = do
+    setCurrentDirectory $ takeDirectory file
     callCommand $ unwords ["source", file, "&&", funcName Shell func, unwords args]
