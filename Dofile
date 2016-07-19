@@ -1,8 +1,6 @@
 #!/bin/sh
 
-do_() {
-	echo "[default]"
-}
+target="./dostuff"
 
 do_valgrind() {
 	valgrind --error-exitcode=10 ./dostuff -f 2>/dev/null >/dev/null || echo "errors"
@@ -22,13 +20,13 @@ do_valgrind() {
 }
 
 
-do_normal() {
-	pwd
-	ls|wc -l
-}
-
-
-do_args() {
-	pwd
-	echo "$@"
+do_test () {
+    for t in tests/*.sh; do
+        echo -n "${t}: "
+        if ${t} ${target} 2>/dev/null; then
+            echo -e "\e[32msuccess\e[0m"
+        else
+            echo -e "\e[31mfailure\e[0m"
+        fi
+    done
 }
