@@ -65,6 +65,6 @@ Tab completion for available functions:
 
 ## Building
 
-Use `tup` or the `build.sh` script (generated with `tup`).
+Use `make`.
 
 Requires *libmagic* (sometimes packaged together with `file`).
