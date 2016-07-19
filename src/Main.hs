@@ -2,6 +2,7 @@
 module Main (
     main
 ) where
+import Control.Monad (unless)
 import Data.List
 import Data.Maybe
 import System.Directory
@@ -18,9 +19,10 @@ data Format = Shell
 data Dofile = Dofile
     { dFile :: FilePath
     , dFormat :: Format
-    , dFunctions :: [String]
+    , dFunctions :: [Dofunction]
     } deriving (Show, Eq)
 
+type Dofunction = (String, Bool)
 
 
 main :: IO ()
@@ -53,7 +55,7 @@ printDofiles = mapM_ (putStrLn . dFile) =<< dofiles
 printFunctions :: IO ()
 printFunctions = do
     functions <- nub . concatMap dFunctions <$> dofiles
-    mapM_ putStrLn functions
+    mapM_ (putStrLn . fst) functions
 
 
 dofiles :: IO [Dofile]
@@ -68,35 +70,36 @@ dofiles = do
 
 toDofile :: FilePath -> IO Dofile
 toDofile file = do
-    functions <- mapMaybe (extractName format) . lines <$> readFile file
+    functions <- mapMaybe (extractFunc format) . lines <$> readFile file
     return $ Dofile file format functions
   where
     format = Shell
 
 
-extractName :: Format -> String -> Maybe String
-extractName Shell line = if suffix `isPrefixOf` rest
-        then stripPrefix prefix name
-        else Nothing
+extractFunc :: Format -> String -> Maybe Dofunction
+extractFunc Shell line = if suffix `isPrefixOf` rest
+    then (\n -> (n, local)) <$> stripPrefix prefix name
+    else Nothing
   where
     (prefix, suffix) = ("do_", "(){")
     (name, rest) =  break (== head suffix) $ normal line
+    local = "#do_local" `isSuffixOf` rest
     normal = filter (/= ' ') 
 
 
 execute :: String -> [String] -> IO ()
 execute func funcArgs = do
-    does <- filter providesFunc <$> dofiles
-    case does of
-         (dofile : _) -> call dofile func funcArgs
+    funcs <- mapMaybe ourFunc <$> dofiles
+    case funcs of
+         ((dofile, f) : _) -> call dofile f funcArgs
          [] -> die $ "No such function: " ++ func
   where
-    providesFunc d = func `elem` dFunctions d
+    ourFunc d = (\l -> (d, (func, l))) <$> lookup func (dFunctions d)
 
 
-call :: Dofile -> String -> [String] -> IO ()
-call (Dofile file Shell _) func args = do
-    setCurrentDirectory $ takeDirectory file
+call :: Dofile -> Dofunction -> [String] -> IO ()
+call (Dofile file Shell _) (func, local) args = do
+    unless local (setCurrentDirectory $ takeDirectory file)
     system (unwords ["source", file, "&&", funcName Shell func, unwords args]) >>= exitWith
 
 
