@@ -3,13 +3,13 @@ module Main (
     main
 ) where
 import Control.Monad (unless)
-import Data.List
-import Data.Maybe
-import System.Directory
-import System.Environment
-import System.Exit
-import System.FilePath
-import System.IO
+import Data.List (nub, inits, isPrefixOf, isSuffixOf, stripPrefix)
+import Data.Maybe (fromMaybe, mapMaybe)
+import System.Directory (getCurrentDirectory, setCurrentDirectory, findFiles)
+import System.Environment (getArgs, getProgName, lookupEnv)
+import System.Exit (exitSuccess, exitWith, die)
+import System.FilePath (joinPath, splitPath, takeDirectory)
+import System.IO (hPutStrLn, stderr)
 import System.Process (system)
 
 
