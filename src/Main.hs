@@ -13,12 +13,8 @@ import System.IO (hPutStrLn, stderr)
 import System.Process (system)
 
 
-data Format = Shell
-    deriving (Show, Eq)
-
 data Dofile = Dofile
     { dFile :: FilePath
-    , dFormat :: Format
     , dFunctions :: [Dofunction]
     } deriving (Show, Eq)
 
@@ -70,14 +66,12 @@ dofiles = do
 
 toDofile :: FilePath -> IO Dofile
 toDofile file = do
-    functions <- mapMaybe (extractFunc format) . lines <$> readFile file
-    return $ Dofile file format functions
-  where
-    format = Shell
+    functions <- mapMaybe extractFunc . lines <$> readFile file
+    return $ Dofile file functions
 
 
-extractFunc :: Format -> String -> Maybe Dofunction
-extractFunc Shell line = if suffix `isPrefixOf` rest
+extractFunc :: String -> Maybe Dofunction
+extractFunc line = if suffix `isPrefixOf` rest
     then (\n -> (n, local)) <$> stripPrefix prefix name
     else Nothing
   where
@@ -98,10 +92,10 @@ execute func funcArgs = do
 
 
 call :: Dofile -> Dofunction -> [String] -> IO ()
-call (Dofile file Shell _) (func, local) args = do
+call (Dofile file _) (func, local) args = do
     unless local (setCurrentDirectory $ takeDirectory file)
-    system (unwords ["source", file, "&&", funcName Shell func, unwords args]) >>= exitWith
+    system (unwords ["source", file, "&&", funcName func, unwords args]) >>= exitWith
 
 
-funcName :: Format -> String -> String
-funcName Shell func = "do_" ++ func
+funcName :: String -> String
+funcName func = "do_" ++ func
