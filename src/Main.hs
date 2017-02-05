@@ -1,101 +1,102 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Main (
     main
 ) where
-import Control.Monad (unless)
-import Data.List (nub, inits, isPrefixOf, isSuffixOf, stripPrefix)
+import Data.List (nub, inits, stripPrefix)
 import Data.Maybe (fromMaybe, mapMaybe)
-import System.Directory (getCurrentDirectory, setCurrentDirectory, findFiles)
+import System.Directory (getCurrentDirectory, findFiles)
 import System.Environment (getArgs, getProgName, lookupEnv)
-import System.Exit (exitSuccess, exitWith, die)
+import System.Exit (exitWith, die)
 import System.FilePath (joinPath, splitPath, takeDirectory)
-import System.IO (hPutStrLn, stderr)
-import System.Process (system)
+import System.IO (hPutStr, stderr)
+import System.Process (readCreateProcess, proc, createProcess, cwd, waitForProcess)
 
 
-data Dofile = Dofile
-    { dFile :: FilePath
-    , dFunctions :: [Dofunction]
-    } deriving (Show, Eq)
-
-type Dofunction = (String, Bool)
+data Mode = ShowUsage | ShowFiles | ShowFunctions | Execute Function Bool
+          deriving Show
+type Function = (String, [String])
 
 
 main :: IO ()
 main = do
-    args <- getArgs
-    case args of
-         ["-h"] -> usage
-         ["--help"] -> usage
-         ["-f"] -> printDofiles
-         ["-p"] -> printFunctions
-         (func : funcArgs) -> execute func funcArgs
-         [] -> execute "" []
-    exitSuccess
+    mode <- parseArgs <$> getArgs
+    case mode of
+        Nothing ->
+            die "Illegal argument(s)."
+
+        Just ShowUsage ->
+            usage
+
+        Just ShowFiles ->
+            putStr =<< unlines <$> dofiles
+
+        Just ShowFunctions ->
+            putStr =<< unlines <$> (allFuncNames =<< dofiles)
+
+        Just (Execute (name, args) local) -> do
+            file <- funcFile name
+            case file of
+                 Nothing -> die $ "Unknown function: \"" ++ name ++ "\"."
+                 Just f -> execute f name args local
+
+
+execute :: FilePath -> String -> [String] -> Bool -> IO ()
+execute file name args local = do
+    wd <- if local then getCurrentDirectory
+                   else return $ takeDirectory file
+    (_, _, _, processH) <- createProcess $ process { cwd = Just wd }
+    exitWith =<< waitForProcess processH
+  where
+    process = proc "bash" $ ["-c",script, "dostuff", file, name] ++ args
+    script = "_dofile=\"$1\" && _dofunc=\"$2\" && shift 2 && source \"${_dofile}\" && do_${_dofunc} \"$@\""
+
+
+parseArgs :: [String] -> Maybe Mode
+parseArgs ("-h" : _) = Just ShowUsage
+parseArgs ("-f" : _) = Just ShowFiles
+parseArgs ("-p" : _) = Just ShowFunctions
+parseArgs ("-l" : rest) = case parseArgs rest of
+                               Just (Execute f _) -> Just $ Execute f True
+                               _ -> Nothing
+parseArgs (f : fArgs) = Just $ Execute (f, fArgs) False
+parseArgs [] = Just $ Execute ("", []) False
 
 
 usage :: IO ()
-usage = do
-    prog <- getProgName
-    hPutStrLn stderr $ "Usage: " ++ prog ++ " [-f | -p | [-l] FUNCTION [ARG1 ...]]"
-    hPutStrLn stderr "  -f                   Print paths of available dofiles"
-    hPutStrLn stderr "  -p                   Print names of available functions"
-    hPutStrLn stderr "  -l                   Force execution in current working directory"
-    hPutStrLn stderr "  FUNCTION [ARG1 ...]  Call local function with optional arguments"
+usage = hPutStr stderr =<< unlines . text <$> getProgName
+  where
+      text prog = [ "Usage: " ++ prog ++ " [-f | -p | [-l] FUNCTION [ARG1 ...]]"
+                  , "  -f                   Print paths of available dofiles"
+                  , "  -p                   Print names of available functions"
+                  , "  -l                   Force execution in current working directory"
+                  , "  FUNCTION [ARG1 ...]  Call local function with optional arguments"
+                  ]
 
 
-printDofiles :: IO ()
-printDofiles = mapM_ (putStrLn . dFile) =<< dofiles
-
-
-printFunctions :: IO ()
-printFunctions = do
-    functions <- nub . concatMap dFunctions <$> dofiles
-    mapM_ (putStrLn . fst) functions
-
-
-dofiles :: IO [Dofile]
+dofiles :: IO [FilePath]
 dofiles = do
     filename <- fromMaybe "Dofile" <$> lookupEnv "DOFILE"
     paths <- parentPaths <$> getCurrentDirectory
-    files <- findFiles paths filename
-    mapM toDofile files
+    findFiles paths filename
   where
     parentPaths = map joinPath . reverse . drop 1 . inits . splitPath
 
 
-toDofile :: FilePath -> IO Dofile
-toDofile file = do
-    functions <- mapMaybe extractFunc . lines <$> readFile file
-    return $ Dofile file functions
+allFuncNames :: [FilePath] -> IO [String]
+allFuncNames paths = nub . concat <$> mapM funcNames paths
 
 
-extractFunc :: String -> Maybe Dofunction
-extractFunc line = if suffix `isPrefixOf` rest
-    then (\n -> (n, local)) <$> stripPrefix prefix name
-    else Nothing
+funcNames :: FilePath -> IO [String]
+funcNames path =
+    mapMaybe (stripPrefix "declare -f do_") . lines <$> rawFuncs
   where
-    (prefix, suffix) = ("do_", "(){")
-    (name, rest) =  break (== head suffix) $ normal line
-    local = "#do_local" `isSuffixOf` rest
-    normal = filter (/= ' ') 
+    rawFuncs = readCreateProcess (proc "bash" ["-c", "source \"$1\" && declare -F", "funcNames", path]) ""
 
 
-execute :: String -> [String] -> IO ()
-execute func funcArgs = do
-    funcs <- mapMaybe ourFunc <$> dofiles
-    case funcs of
-         ((dofile, f) : _) -> call dofile f funcArgs
-         [] -> die $ "No such function: " ++ func
+funcFile :: String -> IO (Maybe FilePath)
+funcFile name = funcFile' =<< dofiles
   where
-    ourFunc d = (\l -> (d, (func, l))) <$> lookup func (dFunctions d)
-
-
-call :: Dofile -> Dofunction -> [String] -> IO ()
-call (Dofile file _) (func, local) args = do
-    unless local (setCurrentDirectory $ takeDirectory file)
-    system (unwords ["source", file, "&&", funcName func, unwords args]) >>= exitWith
-
-
-funcName :: String -> String
-funcName func = "do_" ++ func
+    funcFile' [] = return Nothing
+    funcFile' (f:fs) = do
+        funcs <- funcNames f
+        if name `elem` funcs then return $ Just f
+                             else funcFile' fs
