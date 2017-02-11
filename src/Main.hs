@@ -5,10 +5,10 @@ import Data.List (nub, inits, stripPrefix)
 import Data.Maybe (fromMaybe, mapMaybe)
 import System.Directory (getCurrentDirectory, findFiles)
 import System.Environment (getArgs, getProgName, lookupEnv)
-import System.Exit (exitWith, die)
+import System.Exit (exitWith, die, ExitCode(..))
 import System.FilePath (joinPath, splitPath, takeDirectory)
 import System.IO (hPutStr, stderr)
-import System.Process (readCreateProcess, proc, createProcess, cwd, waitForProcess)
+import System.Process (readCreateProcessWithExitCode, proc, createProcess, cwd, waitForProcess)
 
 
 data Mode = ShowUsage | ShowFiles | ShowFunctions | Execute Function Bool
@@ -86,10 +86,13 @@ allFuncNames paths = nub . concat <$> mapM funcNames paths
 
 
 funcNames :: FilePath -> IO [String]
-funcNames path =
-    mapMaybe (stripPrefix "declare -f do_") . lines <$> rawFuncs
+funcNames path = do
+    (code, out, err) <- readCreateProcessWithExitCode prog ""
+    case code of
+        ExitFailure _ -> die $ "Error processing dofile '" ++ path ++ "'\n" ++ err
+        _ -> return $ mapMaybe (stripPrefix "declare -f do_") $ lines out
   where
-    rawFuncs = readCreateProcess (proc "bash" ["-c", "source \"$1\" && declare -F", "funcNames", path]) ""
+      prog = proc "bash" ["-c", "source \"$1\" && declare -F", "funcNames", path]
 
 
 funcFile :: String -> IO (Maybe FilePath)
