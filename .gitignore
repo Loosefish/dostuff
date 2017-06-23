@@ -1,3 +1,2 @@
-*.o
-dostuff
-.tup
+dist
+cabal.sandbox.config

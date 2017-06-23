@@ -7,7 +7,7 @@ cd "${dir}"
 
 cat > Dofile << EOF
 #!/bin/sh
-do_foo () { # do_local
+do_foo () {
 	pwd
 }
 EOF
@@ -15,7 +15,7 @@ EOF
 mkdir child
 cd child
 
-out=$(${ds} foo)
+out=$(${ds} -l foo)
 ret=$?
 if [ "$out" != "${dir}/child" ]; then
 	ret=1

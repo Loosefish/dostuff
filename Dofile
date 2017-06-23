@@ -1,32 +1,31 @@
 #!/bin/sh
+target="dist/build/dostuff/dostuff"
 
-target="./dostuff"
-
-do_valgrind() {
-	valgrind --error-exitcode=10 ./dostuff -f 2>/dev/null >/dev/null || echo "errors"
-	valgrind --error-exitcode=10 ./dostuff -p 2>/dev/null >/dev/null || echo "errors"
-
-	valgrind --error-exitcode=10 ./dostuff 2>/dev/null >/dev/null || echo "errors"
-	valgrind --error-exitcode=10 ./dostuff normal 2>/dev/null >/dev/null || echo "errors"
-	valgrind --error-exitcode=10 ./dostuff args 100 200 300 ABC 2>/dev/null >/dev/null || echo "errors"
-
-	cp Dofile ../Dorec
-
-	DOFILE="Dorec" valgrind --error-exitcode=10 ./dostuff 2>/dev/null >/dev/null || echo "errors"
-	DOFILE="Dorec" valgrind --error-exitcode=10 ./dostuff normal 2>/dev/null >/dev/null || echo "errors"
-	DOFILE="Dorec" valgrind --error-exitcode=10 ./dostuff args 100 200 300 ABC 2>/dev/null >/dev/null || echo "errors"
-
-	rm ../Dorec
+do_ () {
+	do_build
 }
 
+do_build () {
+	cabal build
+    strip "${target}"
+}
+
+do_clean () {
+	cabal clean
+}
+
+do_echo () {
+	echo "$@"
+}
 
 do_test () {
-    for t in tests/*.sh; do
-        echo -n "${t}: "
-        if ${t} ${target} 2>/dev/null; then
-            echo -e "\e[32msuccess\e[0m"
-        else
-            echo -e "\e[31mfailure\e[0m"
-        fi
-    done
+    do_build
+	for t in tests/*.sh; do
+		echo -n "${t}: "
+		if ${t} ${target} 2>/dev/null; then
+			echo -e "\e[32msuccess\e[0m"
+		else
+			echo -e "\e[31mfailure\e[0m"
+		fi
+	done
 }
