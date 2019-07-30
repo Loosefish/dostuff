@@ -8,7 +8,7 @@ cd "${dir}"
 cat > Dofile <<EOF
 #!/bin/sh
 do_foo () {
-	echo -n \$1
+	echo -n "\$1"
 }
 EOF
 

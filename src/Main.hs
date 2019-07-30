@@ -8,7 +8,7 @@ import System.Environment (getArgs, getProgName, lookupEnv)
 import System.Exit (exitWith, die, ExitCode(..))
 import System.FilePath (joinPath, splitPath, takeDirectory)
 import System.IO (hPutStr, stderr)
-import System.Process (readCreateProcessWithExitCode, proc, createProcess, cwd, waitForProcess)
+import qualified System.Process as P
 
 
 data Mode = ShowUsage | ShowFiles | ShowFunctions | Execute Function Bool
@@ -43,10 +43,10 @@ execute :: FilePath -> String -> [String] -> Bool -> IO ()
 execute file name args local = do
     wd <- if local then getCurrentDirectory
                    else return $ takeDirectory file
-    (_, _, _, processH) <- createProcess $ process { cwd = Just wd }
-    exitWith =<< waitForProcess processH
+    (_, _, _, processH) <- P.createProcess $ process { P.cwd = Just wd }
+    exitWith =<< P.waitForProcess processH
   where
-    process = proc "bash" $ ["-c",script, "dostuff", file, name] ++ args
+    process = P.proc "bash" $ ["-c",script, "dostuff", file, name] ++ args
     script = "_dofile=\"$1\" && _dofunc=\"$2\" && shift 2 && source \"${_dofile}\" && do_${_dofunc} \"$@\""
 
 
@@ -87,12 +87,12 @@ allFuncNames paths = nub . concat <$> mapM funcNames paths
 
 funcNames :: FilePath -> IO [String]
 funcNames path = do
-    (code, out, err) <- readCreateProcessWithExitCode prog ""
+    (code, out, err) <- P.readCreateProcessWithExitCode prog ""
     case code of
         ExitFailure _ -> die $ "Error processing dofile '" ++ path ++ "'\n" ++ err
         _ -> return $ mapMaybe (stripPrefix "declare -f do_") $ lines out
   where
-      prog = proc "bash" ["-c", "source \"$1\" && declare -F", "funcNames", path]
+      prog = P.proc "bash" ["-c", "source \"$1\" && declare -F", "funcNames", path]
 
 
 funcFile :: String -> IO (Maybe FilePath)
