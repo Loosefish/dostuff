@@ -1,17 +1,16 @@
 #!/bin/sh
-target="dist/build/dostuff/dostuff"
+target=".stack-work/dist/x86_64-linux-tinfo6/Cabal-3.0.1.0/build/dostuff/dostuff"
 
 do_ () {
 	do_build
 }
 
 do_build () {
-	cabal build
-    strip "${target}"
+	stack build
 }
 
 do_clean () {
-	cabal clean
+	stack clean
 }
 
 do_echo () {
@@ -19,7 +18,7 @@ do_echo () {
 }
 
 do_test () {
-    do_build
+	do_build
 	for t in tests/*.sh; do
 		echo -n "${t}: "
 		if ${t} ${target} 2>/dev/null; then

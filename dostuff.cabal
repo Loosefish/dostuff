@@ -13,9 +13,9 @@ executable dostuff
     main-is:             Main.hs
     ghc-options:         -Wall -O2
     default-extensions:  OverloadedStrings
-    build-depends:       base==4.9.*,
-                         directory==1.2.*,
-                         filepath==1.4.*,
-                         process==1.4.*
+    build-depends:       base
+                       , directory
+                       , filepath
+                       , process
     hs-source-dirs:      src
     default-language:    Haskell2010
